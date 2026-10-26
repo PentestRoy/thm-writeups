@@ -1,1 +1,81 @@
-# thm-writeups
+<h1 align="center">TryHackMe Write-ups</h1>
+
+<p align="center">
+  Detailed, reproducible, policy-safe walkthroughs of the TryHackMe rooms I've solved.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-TryHackMe-212c42?style=flat-square&logo=tryhackme" alt="TryHackMe">
+  <img src="https://img.shields.io/badge/write--ups-18-blue?style=flat-square" alt="Write-ups">
+  <img src="https://img.shields.io/badge/focus-Web%20%7C%20AD%20%7C%20AI-success?style=flat-square" alt="Focus">
+  <img src="https://img.shields.io/badge/policy-flag--safe-green?style=flat-square" alt="Policy safe">
+</p>
+
+---
+
+## About
+
+I'm **0xnyx** ([@PentestRoy](https://github.com/PentestRoy)) — I focus on web application security and am training as an ethical hacker (Red Team).
+
+This repository is my working log: for every room I finish, I write up the **full attack chain** the way I'd present it in an engagement report — enumeration, the decision behind each step, the exact technique, and how I'd remediate it. The goal is that anyone can follow the method and understand *why* each move was made, not just copy a command.
+
+> **Responsible disclosure:** In line with [TryHackMe's write-up policy](https://tryhackme.com/r/resources/blog), these write-ups contain **no flags, passwords, or cracked values** — only the methodology against the authorised lab environment.
+
+---
+
+## How each write-up is structured
+
+Every write-up follows the same, deliberately repeatable shape:
+
+- **Do → You get → Why / what next** — each step shows the command, the real output to expect, and the reasoning that drives the next move.
+- **Full-chain table** — the whole path from anonymous to objective, at a glance.
+- **Lessons** — the transferable techniques the box teaches.
+- **Remediation** — how a defender would close each hole.
+
+---
+
+## Write-ups
+
+### By focus
+
+| Area | Rooms |
+|------|-------|
+| 🌐 Web / Injection | Pickle Rick · Jurassic Park · Injectics |
+| 🔗 Web / Chained & Boot2Root | Creative · Do Not Disturb · Domino · Silent Monitor · Oh My WebServer · Contrabando · Sequence · Voyage |
+| 🎭 Web / Client-side & Red Team | Whats Your Name? · El Bandito · Farewell · Extract |
+| 🪟 Web / Windows | CyberLens |
+| 🏢 Active Directory | Ledger |
+| 🤖 AI / LLM Security | Frankesqwen |
+
+### Full index
+
+| Box | Difficulty | Focus | Write-up |
+|-----|------------|-------|----------|
+| Pickle Rick | `Easy` | Web / Command Injection | [→](pickle-rick-writeup.md) |
+| Creative | `Easy–Medium` | Web / Boot2Root (SSRF → LD_PRELOAD) | [→](creative-writeup.md) |
+| CyberLens | `Easy–Medium` | Web / Windows (Apache Tika RCE → AlwaysInstallElevated) | [→](cyberlens-writeup.md) |
+| Do Not Disturb | `Medium` | Web / Boot2Root (Node.js) | [→](do-not-disturb-writeup.md) |
+| Domino | `Medium` | Web / Chained exploitation | [→](domino-writeup.md) |
+| Frankesqwen | `Medium` | AI / LLM Security (prompt jailbreak) | [→](frankesqwen-writeup.md) |
+| Injectics | `Medium` | Web / Injection (SQLi → Twig SSTI) | [→](injectics-writeup.md) |
+| Ledger | `Medium` | Active Directory (ADCS ESC1 → pass-the-cert) | [→](ledger-writeup.md) |
+| Oh My WebServer | `Medium` | Web / Container Escape (CVE-2021-42013 → OMIGOD) | [→](oh-my-webserver-writeup.md) |
+| Silent Monitor | `Medium` | Web / Boot2Root (Flask) | [→](silent-monitor-writeup.md) |
+| Whats Your Name? | `Medium` | Web / Client-side (XSS + CSRF) | [→](whats-your-name-writeup.md) |
+| Jurassic Park | `Medium–Hard` | Web / SQL Injection | [→](jurassic-park-writeup.md) |
+| Contrabando | `Hard` | Web / Boot2Root (smuggling → SSRF/SSTI → sudo) | [→](contrabando-writeup.md) |
+| El Bandito | `Hard` | Web / Red Teaming (request smuggling) | [→](el-bandito-writeup.md) |
+| Farewell | `Hard (MAX)` | Web / Red Teaming (WAF bypass) | [→](farewell-writeup.md) |
+| Extract | `MAX (Hard)` | Web (SSRF → gopher → Next.js bypass → cookie tampering) | [→](extract-writeup.md) |
+| Sequence | `MAX (Hard)` | Web / Boot2Root (XSS → CSRF → SSRF → Docker escape) | [→](sequence-writeup.md) |
+| Voyage | `MAX (Hard)` | Web / Boot2Root (Joomla → container → kernel-module escape) | [→](voyage-writeup.md) |
+
+---
+
+## Disclaimer
+
+All techniques shown were performed against the **authorised TryHackMe lab environment**, on machines I had explicit permission to attack. These write-ups are for education and defensive awareness only. Do not use them against systems you do not own or have written authorisation to test.
+
+---
+
+<p align="center"><sub>Maintained by 0xnyx · built one box at a time.</sub></p>
