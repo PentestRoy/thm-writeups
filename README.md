@@ -15,7 +15,7 @@
 
 ## About
 
-I'm **0xnyx** ([@PentestRoy](https://github.com/PentestRoy)) — I focus on web application security and am training as an ethical hacker (Red Team).
+I'm **Roy** ([@PentestRoy](https://github.com/PentestRoy)) — I focus on web application security and am training as an ethical hacker (Red Team).
 
 This repository is my working log: for every room I finish, I write up the **full attack chain** the way I'd present it in an engagement report — enumeration, the decision behind each step, the exact technique, and how I'd remediate it. The goal is that anyone can follow the method and understand *why* each move was made, not just copy a command.
 
